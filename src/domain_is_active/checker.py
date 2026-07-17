@@ -1,4 +1,8 @@
+from dns.dnssecalgs import base
 from base64 import encode
+import requests
+import base64
+import mmh3
 import whois
 import socket
 import dns.resolver
@@ -19,6 +23,7 @@ class PhishingDomainChecker:
             "mx_servers": [],
             "whois_hold": False,
             "whois_status": [],
+            "favicon_hash": None,
             "http_status": None,
             "ssl_sha256": None,
             "ssl_sha1": None,
@@ -119,19 +124,35 @@ class PhishingDomainChecker:
         except Exception:
             pass
 
-
+    def check_favicon(self):
+        if not self.results["dns_resolved"]:
+            return
         
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        url = f"https://{self.domain}/favicon.ico"
+        try:
+            response = requests.get(url, headers=headers, timeout=5.0, verify=False)
+            if response.status_code == 200:
+                encoded_favicon = base64.encodebytes(response.content)
+                self.results["favicon_hash"] = mmh3.hash(encoded_favicon)
+        except Exception:
+            pass            
+
 if __name__ == "__main__":
     # Test 1: Aktif bir domain
     checker = PhishingDomainChecker("google.com")
     checker.check_dns()
     checker.check_whois_status()
-    checker.check_ssl_fingerprints() # Bu satırı ekledik
+    checker.check_ssl_fingerprints() 
+    checker.check_favicon()
     print("Google Testi Sonucu:", checker.results)
 
     # Test 2: Var olmayan bir domain (Hata kontrolü için)
     checker_fake = PhishingDomainChecker("bu-domain-kesinlikle-yoktur-123.com")
     checker_fake.check_dns()
     checker_fake.check_whois_status()
-    checker_fake.check_ssl_fingerprints() # Bu satırı ekledik
+    checker_fake.check_ssl_fingerprints() 
+    checker_fake.check_favicon()
     print("Sahte Domain Testi Sonucu:", checker_fake.results)
