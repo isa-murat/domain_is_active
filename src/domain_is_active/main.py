@@ -265,7 +265,7 @@ class PhishingPipelineOrchestrator:
                 
             # 1. Dış Link: Ekran Görüntüsü URLScan Linki
             ss_url = item["screenshot_url"]
-            ss_cell = ws_detail.cell(row=row_idx, column=15)
+            ss_cell = ws_detail.cell(row=row_idx, column=16)
             if ss_url and ss_url != "-":
                 ss_cell.value = f'=HYPERLINK("{ss_url}", "Görseli Aç 🔗")'
                 ss_cell.font = Font(color="0000FF", underline="single")
@@ -274,7 +274,7 @@ class PhishingPipelineOrchestrator:
                 
             # 2. İç Link (Workbook Internal Hyperlink): İlişkili Avlanan Domainler
             corr_str = item["correlated_domains"]
-            corr_cell = ws_detail.cell(row=row_idx, column=16)
+            corr_cell = ws_detail.cell(row=row_idx, column=17)
             
             if corr_str and corr_str != "-":
                 first_corr = corr_str.split(",")[0].strip().lower()
