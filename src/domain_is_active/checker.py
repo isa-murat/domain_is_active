@@ -1,7 +1,5 @@
 import re
 import requests
-import base64
-import mmh3
 import whois
 import socket
 import dns.resolver
@@ -27,7 +25,7 @@ class PhishingDomainChecker:
             "mx_servers": [],
             "whois_hold": False,
             "whois_status": [],
-            "favicon_hash": None,
+            "favicon_sha256": None,
             "http_status": None,
             "redirect_url": None,
             "page_title": None,
@@ -141,8 +139,7 @@ class PhishingDomainChecker:
         try:
             response = requests.get(url, headers=headers, timeout=5.0, verify=False)
             if response.status_code == 200:
-                encoded_favicon = base64.encodebytes(response.content)
-                self.results["favicon_hash"] = mmh3.hash(encoded_favicon)
+                self.results["favicon_sha256"] = hashlib.sha256(response.content).hexdigest()
         except Exception:
             pass            
 
