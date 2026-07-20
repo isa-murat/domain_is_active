@@ -1,20 +1,36 @@
+import os
 import requests
 from typing import Dict, Any, List
+
+def load_env_file(env_path: str = ".env"):
+    """.env dosyasını otomatik okur ve ortam değişkenlerine yükler."""
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
 
 class URLScanHunter:
     def __init__(self, api_key: str = None):
         """
         URLScan.io API ile haberleşen tehdit avcılığı ve geçmiş sorgulama sınıfı.
-        
-        Args:
-            api_key (str, optional): URLScan.io API anahtarı. Tanımlanmazsa aramalar anonim/public yapılır.
+        .env dosyasında veya ortam değişkeninde API Key yoksa anonim tarama yapar.
         """
-        self.api_key = api_key
+        load_env_file()
+        self.api_key = api_key or os.getenv("URLSCAN_API_KEY")
         self.headers = {
             "Content-Type": "application/json"
         }
-        if api_key:
-            self.headers["API-Key"] = api_key
+        if self.api_key:
+            self.headers["API-Key"] = self.api_key
 
     def get_historical_data(self, domain: str) -> Dict[str, Any]:
         """

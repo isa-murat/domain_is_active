@@ -1,7 +1,7 @@
 [project]
 name = "domain-is-active"
 version = "0.1.0"
-description = "Add your description here"
+description = "Phishing Active & Correlation Tool"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -12,3 +12,10 @@ dependencies = [
     "python-whois>=0.9.6",
     "requests>=2.34.2",
 ]
+
+[project.scripts]
+dia = "domain_is_active.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
