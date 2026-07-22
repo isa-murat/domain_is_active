@@ -7,6 +7,13 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
 
+# Environment and Data files
+.env
+*.db
+*.sqlite3
+
+# Reports and Output
 reports/
+*.xlsx
