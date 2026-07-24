@@ -82,6 +82,39 @@ class ExcelExporter:
             pct = (val / total_count * 100) if total_count > 0 else 0
             ws_summary.cell(row=r_idx, column=3, value=f"{pct:.1f}%").alignment = Alignment(horizontal="center")
 
+        # TABLO 2: Phishing Risk Sınıflandırma Özeti (Eğer phishing_results varsa)
+        if self.phishing_results:
+            phish_df = pd.DataFrame(self.phishing_results)
+            total_phish = len(phish_df)
+            risk_counts = phish_df["risk_level"].value_counts().to_dict() if not phish_df.empty and "risk_level" in phish_df.columns else {}
+            wl_count = len(phish_df[phish_df["is_whitelisted"] == "Evet"]) if not phish_df.empty and "is_whitelisted" in phish_df.columns else 0
+
+            ws_summary["A12"] = "Phishing Risk Seviyesi / Metrik"
+            ws_summary["B12"] = "Domain Sayısı"
+            ws_summary["C12"] = "Oran (%)"
+
+            for col in ["A12", "B12", "C12"]:
+                cell = ws_summary[col]
+                cell.font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color=ReportColors.HEADER_BG, end_color=ReportColors.HEADER_BG, fill_type="solid")
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            phish_stats_rows = [
+                ("Toplam Phishing Değerlendirmesi", total_phish),
+                ("CRITICAL PHISHING (Kritik Kimlik Avı)", risk_counts.get(RiskLevel.CRITICAL.value, 0)),
+                ("HIGH RISK (Yüksek Risk)", risk_counts.get(RiskLevel.HIGH.value, 0)),
+                ("SUSPICIOUS (Orta / Şüpheli Risk)", risk_counts.get(RiskLevel.MEDIUM.value, 0)),
+                ("LOW RISK (Düşük Tehdit)", risk_counts.get(RiskLevel.LOW.value, 0)),
+                ("LEGITIMATE / BENIGN (Meşru / Muaf)", risk_counts.get(RiskLevel.BENIGN.value, 0)),
+                ("Whitelist Muafiyeti Sağlanan Domainler", wl_count),
+            ]
+
+            for r_idx, (label, val) in enumerate(phish_stats_rows, start=13):
+                ws_summary.cell(row=r_idx, column=1, value=label).font = Font(bold=(r_idx == 13))
+                ws_summary.cell(row=r_idx, column=2, value=val).alignment = Alignment(horizontal="center")
+                pct = (val / total_phish * 100) if total_phish > 0 else 0
+                ws_summary.cell(row=r_idx, column=3, value=f"{pct:.1f}%").alignment = Alignment(horizontal="center")
+
         # SAYFA 2: Detaylı Analiz
         ws_detail = wb.create_sheet(title="Detayli Analiz")
         ws_detail.views.sheetView[0].showGridLines = True

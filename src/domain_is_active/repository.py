@@ -65,6 +65,9 @@ class ActiveDomainRepository(BaseRepository[ActiveDomainScan]):
                 existing.urlscan_time = str(record.get("urlscan_time", "-"))
                 existing.screenshot_url = str(record.get("screenshot_url", "-"))
                 existing.correlated_domains = str(record.get("correlated_domains", "-"))
+                existing.page_title = str(record.get("page_title", "-"))
+                existing.has_password_input = str(record.get("has_password_input", "Hayır"))
+                existing.has_login_form = str(record.get("has_login_form", "Hayır"))
                 existing.scanned_at = now
             else:
                 # Yeni Kayıt (INSERT)
@@ -87,6 +90,9 @@ class ActiveDomainRepository(BaseRepository[ActiveDomainScan]):
                     urlscan_time=str(record.get("urlscan_time", "-")),
                     screenshot_url=str(record.get("screenshot_url", "-")),
                     correlated_domains=str(record.get("correlated_domains", "-")),
+                    page_title=str(record.get("page_title", "-")),
+                    has_password_input=str(record.get("has_password_input", "Hayır")),
+                    has_login_form=str(record.get("has_login_form", "Hayır")),
                     scanned_at=now,
                 )
                 session.add(scan_entry)
@@ -116,6 +122,9 @@ class ActiveDomainRepository(BaseRepository[ActiveDomainScan]):
                     "urlscan_time": r.urlscan_time,
                     "screenshot_url": r.screenshot_url,
                     "correlated_domains": r.correlated_domains,
+                    "page_title": r.page_title or "-",
+                    "has_password_input": True if r.has_password_input in ["Evet", "True", "true"] else False,
+                    "has_login_form": True if r.has_login_form in ["Evet", "True", "true"] else False,
                 })
             return results
 

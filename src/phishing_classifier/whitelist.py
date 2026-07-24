@@ -2,6 +2,57 @@ from typing import Set, Optional, List
 from phishing_classifier.repository import WhitelistRepository
 
 DEFAULT_WHITELIST_SEED: List[str] = [
+    # Finans / Bankacılık / Kripto
+    "garanti.com.tr",
+    "garantibbva.com.tr",
+    "garantibbva.com",
+    "isbank.com.tr",
+    "isbank.com",
+    "akbank.com",
+    "yapikredi.com.tr",
+    "ziraatbank.com.tr",
+    "ziraat.com.tr",
+    "halkbank.com.tr",
+    "vakifbank.com.tr",
+    "qnbfinansbank.com",
+    "finansbank.com",
+    "denizbank.com",
+    "teb.com.tr",
+    "ing.com.tr",
+    "kuveytturk.com.tr",
+    "albaraka.com.tr",
+    "sekerbank.com.tr",
+    "fibabanka.com.tr",
+    "odeabank.com.tr",
+    "enpara.com",
+    "papara.com",
+    "payfix.com.tr",
+    "troyodeme.com",
+    "binance.com",
+    "btcturk.com",
+    "paribu.com",
+    # E-Devlet & Kamu & Kurumlar
+    "turkiye.gov.tr",
+    "egov.tr",
+    "edevlet.gov.tr",
+    "gib.gov.tr",
+    "sgk.gov.tr",
+    "mhrs.gov.tr",
+    "togg.com.tr",
+    # Telekom & Kargo
+    "turkcell.com.tr",
+    "vodafone.com.tr",
+    "turktelekom.com.tr",
+    "ptt.gov.tr",
+    "pttkargo.com.tr",
+    # E-Ticaret
+    "sahibinden.com",
+    "trendyol.com",
+    "hepsiburada.com",
+    "n11.com",
+    "getir.com",
+    "ciceksepeti.com",
+    # Global Popüler Servisler
     "google.com",
     "youtube.com",
     "facebook.com",
@@ -15,20 +66,6 @@ DEFAULT_WHITELIST_SEED: List[str] = [
     "linkedin.com",
     "github.com",
     "gitlab.com",
-    "turkiye.gov.tr",
-    "egov.tr",
-    "garanti.com.tr",
-    "isbank.com.tr",
-    "akbank.com",
-    "yapikredi.com.tr",
-    "ziraatbank.com.tr",
-    "halkbank.com.tr",
-    "vakifbank.com.tr",
-    "qnbfinansbank.com",
-    "enpara.com",
-    "binance.com",
-    "btcturk.com",
-    "paribu.com",
     "cloudflare.com",
     "openai.com",
     "anthropic.com",
@@ -62,15 +99,28 @@ class WhitelistManager:
         if self._loaded and not force_reload:
             return
 
-        # Seed check
+        # Seed check & load
         self.repo.seed_default_whitelist(DEFAULT_WHITELIST_SEED)
+        
+        # Ek olarak varsayılan seed domainlerin veritabanında eksik kalanlarını da ekle
+        with self.repo.session_scope() as session:
+            from phishing_classifier.models import WhitelistDomain
+            existing_set = self.repo.get_all_domains_set()
+            missing = [
+                WhitelistDomain(domain=d.strip().lower(), source="Tranco Top 10K Seed")
+                for d in DEFAULT_WHITELIST_SEED
+                if d.strip().lower() not in existing_set
+            ]
+            if missing:
+                session.add_all(missing)
+
         self._cached_whitelist = self.repo.get_all_domains_set()
         self._loaded = True
 
     def is_whitelisted(self, domain: str) -> bool:
         """
         Alan adının veya üst alan adının (Parent Domain / eTLD+1) whitelist'te olup olmadığını doğrular.
-        Örn: 'subdomain.garanti.com.tr' -> 'garanti.com.tr' veya 'google.com' kontrol edilir.
+        Örn: 'www.garantibbva.com.tr' -> 'garantibbva.com.tr' kontrol edilir.
         """
         if not self._loaded:
             self.load_whitelist()
@@ -79,6 +129,8 @@ class WhitelistManager:
             return False
 
         clean_domain = domain.strip().lower()
+        if clean_domain.startswith("www."):
+            clean_domain = clean_domain[4:]
 
         # 1. Tam Eşleşme
         if clean_domain in self._cached_whitelist:
@@ -96,6 +148,9 @@ class WhitelistManager:
     def add_domain(self, domain: str, source: str = "Manual Add") -> None:
         """Yeni bir alan adını veritabanına ve bellek önbelleğine ekler."""
         clean_domain = domain.strip().lower()
+        if clean_domain.startswith("www."):
+            clean_domain = clean_domain[4:]
+
         if not clean_domain:
             return
 

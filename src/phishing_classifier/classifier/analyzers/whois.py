@@ -5,8 +5,8 @@ from phishing_classifier.classifier.analyzers.base import BaseAnalyzer, Analysis
 
 class WhoisRiskAnalyzer(BaseAnalyzer):
     """
-    WHOIS hold durumlarını, domain yaşını ve Gizlilik Koruması (Privacy Guard)
-    sinyallerini analiz eder.
+    WHOIS hold durumlarını, domain tescil kısıtlamalarını (TAKEDOWN),
+    domain yaşını ve Gizlilik Koruması sinyallerini analiz eder.
     """
 
     def analyze(self, domain: str, data: Dict[str, Any]) -> AnalysisResult:
@@ -14,13 +14,14 @@ class WhoisRiskAnalyzer(BaseAnalyzer):
         signals: List[str] = []
 
         whois_hold = str(data.get("whois_hold", "Hayır")).strip().lower()
+        decision = str(data.get("decision") or "").strip().upper()
         domain_age_days = data.get("domain_age_days")
         has_privacy_guard = data.get("has_privacy_guard", False)
 
-        # 1. WHOIS Hold Durumu (+25 Puan)
-        if whois_hold in ["evet", "true", "hold"]:
-            score += 25
-            signals.append("WHOIS status kaydında kısıtlama/hold (clientHold/serverHold) tespiti (+25 Puan)")
+        # 1. WHOIS Hold & TAKEDOWN Durumu (+40 Puan)
+        if whois_hold in ["evet", "true", "hold"] or "TAKEDOWN" in decision:
+            score += 40
+            signals.append("WHOIS tescil kısıtlaması / Kapatılma Kararı (TAKEDOWN / clientHold / serverHold) tespiti (+40 Puan)")
 
         # 2. Alan Adı Yaşı Sinyalleri (+25 veya +15 Puan)
         if domain_age_days is not None and isinstance(domain_age_days, (int, float)):

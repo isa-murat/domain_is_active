@@ -184,6 +184,9 @@ class PhishingPipelineOrchestrator:
             "urlscan_time": history.get("scan_time") or "-",
             "screenshot_url": history.get("screenshot_url") or "-",
             "correlated_domains": ", ".join(correlated_domains) if correlated_domains else "-",
+            "page_title": local_res.get("page_title") or "-",
+            "has_password_input": "Evet" if local_res.get("has_password_input") else "Hayır",
+            "has_login_form": "Evet" if local_res.get("has_login_form") else "Hayır",
         }
 
         # Veritabanına kaydet
@@ -195,6 +198,7 @@ class PhishingPipelineOrchestrator:
         # 5. Phishing Risk Sınıflandırma ve Skorlama Motoru
         try:
             feature_data = {
+                "decision": record.get("decision"),
                 "has_password_input": local_res.get("has_password_input", False),
                 "has_login_form": local_res.get("has_login_form", False),
                 "page_title": local_res.get("page_title", ""),

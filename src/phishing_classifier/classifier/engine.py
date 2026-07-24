@@ -35,13 +35,13 @@ class PhishingRiskClassifier:
 
     def _determine_risk_level(self, score: int) -> RiskLevel:
         """Risk puanını RiskLevel Enum seviyesine eşler."""
-        if score >= 85:
+        if score >= 75:
             return RiskLevel.CRITICAL
-        elif score >= 62:
+        elif score >= 55:
             return RiskLevel.HIGH
-        elif score >= 40:
+        elif score >= 30:
             return RiskLevel.MEDIUM
-        elif score >= 20:
+        elif score >= 10:
             return RiskLevel.LOW
         else:
             return RiskLevel.BENIGN

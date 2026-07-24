@@ -12,6 +12,7 @@ FREE_DV_ISSUERS = [
     "r11",
     "e1",
     "e2",
+    "google trust services",
 ]
 
 
@@ -35,12 +36,12 @@ class SSLNetworkRiskAnalyzer(BaseAnalyzer):
             score += 15
             signals.append("SSL sertifikası geçersiz, doğrulanamadı veya kendinden imzalı (self-signed) (+15 Puan)")
 
-        # 2. Ücretsiz Kısa Süreli DV SSL Kullanımı (+10 Puan)
+        # 2. Ücretsiz Kısa Süreli DV SSL Kullanımı (+15 Puan)
         if ssl_issuer and ssl_issuer != "-":
             for issuer_kw in FREE_DV_ISSUERS:
                 if issuer_kw in ssl_issuer:
-                    score += 10
-                    signals.append(f"Ücretsiz kısa süreli DV SSL yayıncısı kullanımı ('{ssl_issuer}') (+10 Puan)")
+                    score += 15
+                    signals.append(f"Ücretsiz kısa süreli DV SSL yayıncısı kullanımı ('{ssl_issuer}') (+15 Puan)")
                     break
 
         # 3. HTTP Bağlantı Hatası / Şüpheli Durum Kodu (+10 Puan)

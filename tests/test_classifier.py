@@ -58,7 +58,7 @@ def test_whois_risk_analyzer():
         "has_privacy_guard": True,
     }
     res = analyzer.analyze("new-domain.com", data)
-    assert res.score == 60  # 25 + 25 + 10
+    assert res.score == 75  # 40 + 25 + 10
 
 
 def test_ssl_network_risk_analyzer():
@@ -69,7 +69,7 @@ def test_ssl_network_risk_analyzer():
         "http_status": "500",
     }
     res = analyzer.analyze("bad-ssl-domain.com", data)
-    assert res.score == 35  # 15 + 10 + 10
+    assert res.score == 40  # 15 + 15 + 10
 
 
 def test_phishing_risk_classifier_whitelisted():
