@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import os
 import re
 import sys
@@ -19,6 +20,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from domain_is_active.checker.domain_checker import PhishingDomainChecker
 from domain_is_active.hunting.urlscan_hunter import URLScanHunter
 from domain_is_active.exporters.excel import ExcelExporter
+from domain_is_active.repository import ActiveDomainRepository
 from domain_is_active.constants.defaults import (
     DEFAULT_MAX_THREADS,
     DEFAULT_MAX_CORRELATED_PER_DOMAIN,
@@ -50,11 +52,17 @@ class PhishingPipelineOrchestrator:
         self.input_path = input_path
         self.max_threads = max_threads
         self.max_correlated_per_domain = max_correlated_per_domain
+
+        if not output_excel_path:
+            timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_excel_path = os.path.join("reports", f"phishing_analysis_report_{timestamp_str}.xlsx")
         self.output_excel_path = output_excel_path
+
         self.queue = deque()
         self.visited_domains = set()
         self.results: List[Dict[str, Any]] = []
         self.hunter = URLScanHunter()
+        self.repo = ActiveDomainRepository()
         self.processed_count = 0
 
     def _extract_domains_from_dataframe(self, df: pd.DataFrame) -> List[Any]:
@@ -171,10 +179,21 @@ class PhishingPipelineOrchestrator:
             "screenshot_url": history.get("screenshot_url") or "-",
             "correlated_domains": ", ".join(correlated_domains) if correlated_domains else "-",
         }
+
+        # Veritabanına kaydet
+        try:
+            self.repo.save_scan_result(record)
+        except Exception as e:
+            print(f"[!] DB Kayıt Hatası ({domain}): {e}")
+
         return record
 
-    def run_pipeline(self):
+    def run_pipeline(self, reset_db: bool = False):
         """Kuyruktaki tüm domainler bitene kadar tek bir ThreadPoolExecutor ile eşzamanlı çalışır."""
+        if reset_db:
+            print("[*] Veritabanı temizleniyor (--reset-db aktif)... Eski kayıtlar silindi.")
+            self.repo.clear_all_scans()
+
         self.load_initial_domains()
 
         start_time = time.time()
@@ -191,7 +210,7 @@ class PhishingPipelineOrchestrator:
                         batch_results = list(executor.map(self.process_single_domain, batch))
                         self.results.extend(batch_results)
 
-                        # Her 20 taranan domainde bir Excel raporunu otomatik kaydet (Ara Kayıt / Auto-Save)
+                        # Her 20 taranan domainde bir Excel raporunu otomatik kaydet
                         if len(self.results) % 20 == 0:
                             self.export_excel_report(self.output_excel_path, silent=True)
 
@@ -236,6 +255,11 @@ def main():
         default=DEFAULT_MAX_THREADS,
         help="Eşzamanlı çalışacak thread sayısı (Varsayılan: 10)"
     )
+    parser.add_argument(
+        "--reset-db",
+        action="store_true",
+        help="Tarama öncesi veritabanını temizler ve sadece bu taramanın (ve avlanan ilişkili domainlerinin) sonuçlarını saklar."
+    )
 
     args = parser.parse_args()
 
@@ -245,7 +269,7 @@ def main():
         max_correlated_per_domain=args.max_correlated,
         output_excel_path=args.output,
     )
-    orchestrator.run_pipeline()
+    orchestrator.run_pipeline(reset_db=args.reset_db)
 
 
 if __name__ == "__main__":

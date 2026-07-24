@@ -18,6 +18,10 @@ Bu doküman, projede alınan kritik teknik ve mimari kararların gerekçelerini 
 - **Karar:** `ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)` ile `CERT_NONE` kullanılarak SSL doğrulama hatası veren phishing sitelerinden bile SPKI hash çıkarılması sağlandı.
 - **Gerekçe:** Phishing sitelerinin geçersiz SSL kullanması nedeniyle `spki_sha256` hash'inin `None` kalması ve tehdit avcılığının durması engellendi.
 
-### ADR-004: SQLite & Alembic Veritabanı Mimarisi
-- **Karar:** Veritabanı katmanı için SQLite + Alembic seçildi.
-- **Gerekçe:** Sıfır ek sunucu bağımlılığı, hızlı entegrasyon ve gelecekte PostgreSQL'e kod değiştirmeden geçiş olanağı.
+### ADR-004: Shared Core DB (`src/core/db/`) ve SQLite / Alembic
+- **Karar:** Veritabanı altyapısı (Engine, SessionManager, Alembic migrasyonları) projenin tüm modüllerinin ortak erişebilmesi için `src/core/db/` altında merkezi bir paket olarak konumlandırıldı.
+- **Gerekçe:** Çapraz modül bağımlılıklarını engellemek (Inverted Dependency önlendi) ve gelecekte `phishing_classifier`, `visual_analyzer` modüllerinin aynı DB altyapısını kod tekrarı olmadan kullanabilmesi.
+
+### ADR-005: BaseRepository (Soyut Temel Sınıf / Repository Pattern)
+- **Karar:** Tüm veritabanı işlemlerini jenerik CRUD fonksiyonları sunan `BaseRepository` (`src/core/db/base.py`) soyut temel sınıfı üzerinden yürütmek. Modüller kendi repository sınıflarını (`ActiveDomainRepository`) bu sınıftan türetir.
+- **Gerekçe:** DRY prensibi, modülerlik, kolay birim testleri (unit testing/mocking) ve güvenli transaction/session yönetimi.
