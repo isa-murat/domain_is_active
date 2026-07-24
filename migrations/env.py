@@ -10,9 +10,10 @@ from alembic import context
 # Ensure src directory is in sys.path for Alembic
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-from src.core.db.database import Base
+from core.db.database import Base
 # Import all ORM models here so Alembic can detect them for autogenerate
 from domain_is_active.models import ActiveDomainScan, ActiveScanHistory  # noqa: F401
+from phishing_classifier.models import PhishingRiskAssessment, WhitelistDomain  # noqa: F401
 
 config = context.config
 

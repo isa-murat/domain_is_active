@@ -37,9 +37,13 @@ def sanitize_domain(raw_domain: str) -> str:
     return d
 
 
+from phishing_classifier.classifier.engine import PhishingRiskClassifier
+from phishing_classifier.repository import PhishingRiskRepository
+
+
 class PhishingPipelineOrchestrator:
     """
-    Tüm domain aktiflik tarama ve korelasyon pipeline'ını yöneten orkestratör sınıf.
+    Tüm domain aktiflik tarama, tehdit avcılığı ve Phishing Risk Skorlama pipeline'ını yöneten orkestratör sınıf.
     """
 
     def __init__(
@@ -61,8 +65,10 @@ class PhishingPipelineOrchestrator:
         self.queue = deque()
         self.visited_domains = set()
         self.results: List[Dict[str, Any]] = []
+        self.phishing_results: List[Dict[str, Any]] = []
         self.hunter = URLScanHunter()
         self.repo = ActiveDomainRepository()
+        self.classifier = PhishingRiskClassifier()
         self.processed_count = 0
 
     def _extract_domains_from_dataframe(self, df: pd.DataFrame) -> List[Any]:
@@ -186,6 +192,24 @@ class PhishingPipelineOrchestrator:
         except Exception as e:
             print(f"[!] DB Kayıt Hatası ({domain}): {e}")
 
+        # 5. Phishing Risk Sınıflandırma ve Skorlama Motoru
+        try:
+            feature_data = {
+                "has_password_input": local_res.get("has_password_input", False),
+                "has_login_form": local_res.get("has_login_form", False),
+                "page_title": local_res.get("page_title", ""),
+                "redirect_url": local_res.get("redirect_url", ""),
+                "ssl_valid": record.get("ssl_valid"),
+                "ssl_issuer": record.get("ssl_issuer"),
+                "spki_sha256": record.get("spki_sha256"),
+                "http_status": record.get("http_status"),
+                "whois_hold": record.get("whois_hold"),
+            }
+            risk_assessment = self.classifier.classify(domain, feature_data)
+            self.phishing_results.append(risk_assessment)
+        except Exception as e:
+            print(f"[!] Risk Skorlama Hatası ({domain}): {e}")
+
         return record
 
     def run_pipeline(self, reset_db: bool = False):
@@ -221,9 +245,29 @@ class PhishingPipelineOrchestrator:
             print(f"\n[+] Pipeline Tamamlandı / Durduruldu! Toplam {len(self.results)} domain {elapsed:.2f} saniyede analiz edildi.")
             self.export_excel_report(self.output_excel_path)
 
+    def reclassify_db_domains(self) -> str:
+        """
+        Yeniden canlılık taraması yapmaksızın, veritabanındaki tüm 'ActiveDomainScan'
+        kayıtlarını okur, 'PhishingRiskClassifier' motorundan geçirir, sonuçları
+        DB'ye kaydeder ve güncel çok sayfalı Excel raporunu üretir.
+        """
+        db_records = self.repo.get_all_as_dict()
+        if not db_records:
+            print("[!] Veritabanında sınıflandırılacak aktif domain kaydı bulunamadı.")
+            return ""
+
+        print(f"[*] Veritabanındaki {len(db_records)} adet domain Phishing Risk Classifier motorundan geçiriliyor...")
+
+        self.results = db_records
+        self.phishing_results = self.classifier.classify_batch(db_records)
+
+        output_path = self.export_excel_report(self.output_excel_path)
+        print(f"[+] Re-classification tamamlandı! Toplam {len(self.phishing_results)} domain sınıflandırıldı.")
+        return output_path
+
     def export_excel_report(self, output_path: str = None, silent: bool = False) -> str:
         """Sonuçları Excel raporuna aktarır."""
-        exporter = ExcelExporter(self.results)
+        exporter = ExcelExporter(self.results, phishing_results=self.phishing_results)
         return exporter.export(output_path, silent=silent)
 
 
@@ -234,7 +278,7 @@ def main():
     parser.add_argument(
         "-p", "--path",
         type=str,
-        required=True,
+        default=None,
         help="Girdi dosyası yolu (.csv, .txt, .xlsx)"
     )
     parser.add_argument(
@@ -260,16 +304,28 @@ def main():
         action="store_true",
         help="Tarama öncesi veritabanını temizler ve sadece bu taramanın (ve avlanan ilişkili domainlerinin) sonuçlarını saklar."
     )
+    parser.add_argument(
+        "--reclassify-db",
+        action="store_true",
+        help="Ağ taraması yapmadan veritabanındaki mevcut domainleri Phishing Risk Classifier motorundan geçirir ve Excel raporu üretir."
+    )
 
     args = parser.parse_args()
 
+    if not args.path and not getattr(args, "reclassify_db", False):
+        parser.error("Lütfen bir girdi dosyası (-p / --path) veya DB sınıflandırma parametresi (--reclassify-db) belirtin.")
+
     orchestrator = PhishingPipelineOrchestrator(
-        input_path=args.path,
+        input_path=args.path or "",
         max_threads=args.threads,
         max_correlated_per_domain=args.max_correlated,
         output_excel_path=args.output,
     )
-    orchestrator.run_pipeline(reset_db=args.reset_db)
+
+    if args.reclassify_db:
+        orchestrator.reclassify_db_domains()
+    else:
+        orchestrator.run_pipeline(reset_db=args.reset_db)
 
 
 if __name__ == "__main__":

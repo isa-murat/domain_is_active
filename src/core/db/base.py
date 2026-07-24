@@ -36,6 +36,7 @@ class BaseRepository(Generic[T]):
         """Tek bir veriyi veritabanına ekler."""
         with self.session_scope() as session:
             session.add(entity)
+            session.flush()
             session.refresh(entity)
             return entity
 

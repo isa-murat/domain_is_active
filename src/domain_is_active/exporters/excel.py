@@ -1,21 +1,28 @@
 import datetime
+import json
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import pandas as pd
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
 from openpyxl.utils import get_column_letter
-from domain_is_active.constants.enums import ReportColors, ScanDecision
+from domain_is_active.constants.enums import ReportColors, ScanDecision, RiskLevel
 
 
 class ExcelExporter:
     """
-    Tarama sonuçlarını profesyonel Yönetici Özeti ve Detaylı Analiz
-    sayfaları içeren tıklanabilir Excel raporuna dönüştüren modül.
+    Tarama sonuçlarını ve Phishing Risk Skorlarını profesyonel Yönetici Özeti,
+    Detaylı Canlılık Analizi ve Phishing Risk Analizi sayfaları içeren
+    tıklanabilir Excel raporuna dönüştüren modül.
     """
 
-    def __init__(self, results: List[Dict[str, Any]]):
+    def __init__(
+        self,
+        results: List[Dict[str, Any]],
+        phishing_results: Optional[List[Dict[str, Any]]] = None,
+    ):
         self.results = results
+        self.phishing_results = phishing_results or []
 
     def export(self, output_path: str = None, silent: bool = False) -> str:
         """
@@ -156,6 +163,86 @@ class ExcelExporter:
             else:
                 corr_cell.value = "-"
 
+        # SAYFA 3: Phishing Risk Analizi (Eğer phishing_results varsa)
+        if self.phishing_results:
+            ws_risk = wb.create_sheet(title="Phishing Risk Analizi")
+            ws_risk.views.sheetView[0].showGridLines = True
+
+            risk_headers = [
+                "Domain",
+                "Risk Puanı (0-100)",
+                "Risk Seviyesi",
+                "Whitelist Muafiyeti",
+                "Tetiklenen Tehdit Sinyalleri",
+                "Değerlendirme Tarihi",
+            ]
+            ws_risk.append(risk_headers)
+
+            for col_num, header in enumerate(risk_headers, 1):
+                cell = ws_risk.cell(row=1, column=col_num)
+                cell.font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color=ReportColors.TITLE_BG, end_color=ReportColors.TITLE_BG, fill_type="solid")
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            ws_risk.row_dimensions[1].height = 28
+
+            risk_color_map = {
+                RiskLevel.CRITICAL: PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid"),
+                RiskLevel.HIGH: PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"),
+                RiskLevel.MEDIUM: PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"),
+                RiskLevel.LOW: PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid"),
+                RiskLevel.BENIGN: PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"),
+            }
+
+            for row_idx, r_item in enumerate(self.phishing_results, start=2):
+                signals_raw = r_item.get("triggered_signals", [])
+                if isinstance(signals_raw, str):
+                    try:
+                        signals_list = json.loads(signals_raw)
+                    except Exception:
+                        signals_list = [signals_raw]
+                elif isinstance(signals_raw, list):
+                    signals_list = signals_raw
+                else:
+                    signals_list = [str(signals_raw)]
+
+                signals_str = "\n".join(f"• {s}" for s in signals_list)
+
+                r_data = [
+                    r_item.get("domain", ""),
+                    r_item.get("risk_score", 0),
+                    r_item.get("risk_level", "LEGITIMATE / BENIGN"),
+                    r_item.get("is_whitelisted", "Hayır"),
+                    signals_str,
+                    r_item.get("assessed_at", "-"),
+                ]
+                ws_risk.append(r_data)
+
+                # Risk seviyesi renklendirme
+                r_level = r_item.get("risk_level")
+                cell_lvl = ws_risk.cell(row=row_idx, column=3)
+                cell_score = ws_risk.cell(row=row_idx, column=2)
+
+                cell_score.alignment = Alignment(horizontal="center", vertical="center")
+                cell_lvl.alignment = Alignment(horizontal="center", vertical="center")
+
+                if r_level in risk_color_map:
+                    cell_lvl.fill = risk_color_map[r_level]
+                    cell_lvl.font = Font(bold=True)
+                    if r_level == RiskLevel.CRITICAL:
+                        cell_lvl.font = Font(bold=True, color="FFFFFF")
+
+                # Signals sütunu satır kaydırma (wrap text)
+                ws_risk.cell(row=row_idx, column=5).alignment = Alignment(wrap_text=True, vertical="top")
+
+            for col in ws_risk.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = get_column_letter(col[0].column)
+                if col_letter == 'E':
+                    ws_risk.column_dimensions[col_letter].width = 65
+                else:
+                    ws_risk.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 35)
+
+        # Otomatik Sütun Genişliği Ayarı
         for col in ws_detail.columns:
             max_len = max(len(str(cell.value or '')) for cell in col)
             col_letter = get_column_letter(col[0].column)

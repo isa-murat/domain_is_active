@@ -25,3 +25,20 @@ Bu doküman, projede alınan kritik teknik ve mimari kararların gerekçelerini 
 ### ADR-005: BaseRepository (Soyut Temel Sınıf / Repository Pattern)
 - **Karar:** Tüm veritabanı işlemlerini jenerik CRUD fonksiyonları sunan `BaseRepository` (`src/core/db/base.py`) soyut temel sınıfı üzerinden yürütmek. Modüller kendi repository sınıflarını (`ActiveDomainRepository`) bu sınıftan türetir.
 - **Gerekçe:** DRY prensibi, modülerlik, kolay birim testleri (unit testing/mocking) ve güvenli transaction/session yönetimi.
+
+### ADR-006: Independent Phishing Risk Classifier Architecture & Risk Weighting Matrix
+- **Karar:** 
+  1. `phishing_classifier` (`src/phishing_classifier/`) modülü `domain_is_active` canlılık kontrolcüsünden **tamamen bağımsız** modüler bir yapı olarak tasarlanacaktır. `domain_is_active` verileri toplar; `phishing_classifier` ise bu verileri veya harici öznitelik nesnelerini girdi alarak risk hesaplar.
+  2. **0-100 Ağırlıklı Risk Skorlama:** Risk puanı HTML (Form & Şifre kutusu), Leksikal (Typosquatting), WHOIS (Alan adı yaşı, privacy proxy) ve SSL/Network sinyallerinin ağırlıklı toplamı ile hesaplanacak ve 100 ile sınırlandırılacaktır (Skor Skalası: 0-19 Benign, 20-39 Low, 40-61 Medium, 62-84 High, 85-100 Critical).
+  3. **DB Modeli (`PhishingRiskAssessment`):** `src/core/db/` ortak altyapısı kullanılarak `phishing_risk_assessments` tablosunda skor, risk seviyesi ve tetiklenen sinyal detayları (JSON/Text) saklanacaktır.
+- **Gerekçe:** Esneklik, modüller arası tam ayrık çalışma (Loose Coupling).
+
+### ADR-007: Database-Backed Whitelist (`whitelist_domains`) & In-Memory Caching
+- **Karar:** Whitelist verileri statik metin dosyası yerine SQLite veritabanında `whitelist_domains` tablosunda tutulacak, ilk çalıştırmada seed edilecek ve `WhitelistManager` tarafından toplu taramalarda O(1) arama hızı için belleğe (`set`) önbelleklenecektir.
+- **Gerekçe:** Kolay yönetim, veritabanı sorgulanabilirliği ve yüksek performans.
+
+### ADR-008: Multi-Worksheet Single Excel Workbook Reporting
+- **Karar:** Phishing risk analizi sonuçları ayrı bir Excel dosyası yerine mevcut `.xlsx` rapor kitabına **Sayfa 2: "Phishing Risk Analizi"** olarak eklenecektir.
+- **Gerekçe:** Kullanıcı deneyimi, tek raporda hem canlılık hem risk detaylarına bütüncül erişim.
+
+
