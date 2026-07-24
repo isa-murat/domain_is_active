@@ -4,7 +4,7 @@
 `domain_is_active` projesi, phishing/şüpheli alan adlarının canlılık durumlarını (DNS, WHOIS, SSL, HTTP) analiz eden ve URLScan.io üzerinden Multi-Vector (Favicon, SSL SPKI, IP, DOM Hash) tehdit avcılığı yapan modüler bir Python aracıdır.
 
 - **Mevcut Sürüm:** v0.1.0 (Refactored & Modularized)
-- **Aktif Branch:** `docs/memory-bank`
+- **Aktif Branch:** `feat/sqlite-alembic-db`
 - **CLI Kısayolu:** `dia -p <girdi> -o <cikti>`
 
 ---
@@ -17,7 +17,7 @@
 
 ### 2. Veri Toplayıcılar (`domain_is_active/collectors/`)
 - `dns_col.py`: A, AAAA, NS, MX DNS sorguları.
-- `whois_col.py`: WHOIS hold ve status sorguları (`contextlib.redirect_stderr` ile gürültü engellendi).
+- `whois_col.py`: WHOIS hold ve status sorguları.
 - `ssl_col.py`: Unverified SSL (`CERT_NONE`) ile bozuk sertifikalı phishing sitelerinden SPKI hash çıkarılması sağlandı.
 - `http_col.py`: HTTP status, title, favicon SHA256, DOM body hash ve login formu tespitleri.
 - `visual_col.py`: Ekran görüntüsü indirme ve dHash/pHash hesaplayıcı.
@@ -33,4 +33,4 @@
 ---
 
 ## 🔄 Aktif Geliştirme Durumu
-- **Şu an yapılan iş:** AI IDE'lerin proje bağlamını sürdürebilmesi için `docs/memorybank/` yapısının kurulması.
+- **Şu an yapılan iş:** Aşama 1 - Merkezi Veritabanı (`src/core/db/`), Alembic Migrasyonları ve `ActiveDomainRepository` altyapısının kurulması (`feat/sqlite-alembic-db`).
