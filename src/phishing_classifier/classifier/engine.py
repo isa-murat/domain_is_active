@@ -9,6 +9,7 @@ from phishing_classifier.classifier.analyzers import (
     WhoisRiskAnalyzer,
     SSLNetworkRiskAnalyzer,
 )
+from phishing_classifier.visual import VisualRiskAnalyzer
 
 
 class PhishingRiskClassifier:
@@ -31,6 +32,7 @@ class PhishingRiskClassifier:
             HTMLRiskAnalyzer(),
             WhoisRiskAnalyzer(),
             SSLNetworkRiskAnalyzer(),
+            VisualRiskAnalyzer(),
         ]
 
     def _determine_risk_level(self, score: int) -> RiskLevel:
@@ -109,11 +111,15 @@ class PhishingRiskClassifier:
         self.whitelist_manager.load_whitelist()
 
         results: List[Dict[str, Any]] = []
-        for rec in records:
+        total = len(records)
+        for idx, rec in enumerate(records, 1):
             domain = rec.get("domain", "")
             if not domain:
                 continue
             assessment = self.classify(domain=domain, data=rec)
             results.append(assessment)
+
+            if idx % 100 == 0 or idx == total:
+                print(f"  [*] [{idx}/{total}] domain Phishing Risk Classifier tarafından sınıflandırıldı.", flush=True)
 
         return results

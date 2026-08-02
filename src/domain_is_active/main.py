@@ -128,43 +128,42 @@ class PhishingPipelineOrchestrator:
         total_discovered = len(self.visited_domains)
         remaining_in_queue = len(self.queue)
 
-        print(f"[{self.processed_count}/{total_discovered}] [Kuyrukta Kalan: {remaining_in_queue}] [->] Taranıyor: {domain}")
+        print(f"[{self.processed_count}/{total_discovered}] [Kuyrukta Kalan: {remaining_in_queue}] [->] Taranıyor: {domain}", flush=True)
 
         # 1. Lokal Analiz Motoru
         checker = PhishingDomainChecker(domain)
         local_res = checker.run()
 
-        # 2. URLScan Geçmiş Sorgusu
-        history = self.hunter.get_historical_data(domain)
+        # 2. URLScan Geçmiş Sorgusu (Sadece DNS çözüldüyse veya canlıysa)
+        history = {}
+        correlated_domains = []
+        if local_res.get("dns_resolved"):
+            history = self.hunter.get_historical_data(domain)
 
-        # 3. Multi-Vector Tehdit Avcılığı
-        first_ip = local_res.get("ipv4_addresses", [None])[0] if local_res.get("ipv4_addresses") else None
-        correlated_domains = self.hunter.correlate_multi_vector(
-            favicon_sha256=local_res.get("favicon_sha256"),
-            spki_hash=local_res.get("spki_sha256"),
-            ip_address=first_ip,
-            dom_hash=local_res.get("dom_body_hash"),
-        )
-
-        # Kendi kendini çıkar
-        correlated_domains = [d for d in correlated_domains if d.lower() != domain.lower()]
+            # 3. Multi-Vector Tehdit Avcılığı (Sadece max_correlated_per_domain > 0 ise)
+            if self.max_correlated_per_domain > 0:
+                first_ip = local_res.get("ipv4_addresses", [None])[0] if local_res.get("ipv4_addresses") else None
+                correlated_domains = self.hunter.correlate_multi_vector(
+                    favicon_sha256=local_res.get("favicon_sha256"),
+                    spki_hash=local_res.get("spki_sha256"),
+                    ip_address=first_ip,
+                    dom_hash=local_res.get("dom_body_hash"),
+                )
+                correlated_domains = [d for d in correlated_domains if d.lower() != domain.lower()]
 
         # 4. Dinamik Geri Besleme (Kuyruğa Yeni Domain Ekleme)
-        if self.max_correlated_per_domain > 0:
+        if self.max_correlated_per_domain > 0 and correlated_domains:
             target_correlated = correlated_domains[: self.max_correlated_per_domain]
-        else:
-            target_correlated = correlated_domains  # Sınırsız / Limitsiz avcılık
+            added_count = 0
+            for corr_domain in target_correlated:
+                corr_clean = sanitize_domain(corr_domain)
+                if corr_clean and corr_clean not in self.visited_domains:
+                    self.visited_domains.add(corr_clean)
+                    self.queue.append(corr_clean)
+                    added_count += 1
 
-        added_count = 0
-        for corr_domain in target_correlated:
-            corr_clean = sanitize_domain(corr_domain)
-            if corr_clean and corr_clean not in self.visited_domains:
-                self.visited_domains.add(corr_clean)
-                self.queue.append(corr_clean)
-                added_count += 1
-
-        if added_count > 0:
-            print(f"  [+] Tehdit Avcılığı: {domain} üzerinden {added_count} yeni ilişkili domain kuyruğa eklendi. (Toplam Keşfedilen: {len(self.visited_domains)})")
+            if added_count > 0:
+                print(f"  [+] Tehdit Avcılığı: {domain} üzerinden {added_count} yeni ilişkili domain kuyruğa eklendi. (Toplam Keşfedilen: {len(self.visited_domains)})", flush=True)
 
         record = {
             "domain": domain,
@@ -193,9 +192,11 @@ class PhishingPipelineOrchestrator:
         try:
             self.repo.save_scan_result(record)
         except Exception as e:
-            print(f"[!] DB Kayıt Hatası ({domain}): {e}")
+            print(f"[!] DB Kayıt Hatası ({domain}): {e}", flush=True)
 
         # 5. Phishing Risk Sınıflandırma ve Skorlama Motoru
+        risk_level_str = "BENIGN"
+        risk_score = 0
         try:
             feature_data = {
                 "decision": record.get("decision"),
@@ -208,12 +209,16 @@ class PhishingPipelineOrchestrator:
                 "spki_sha256": record.get("spki_sha256"),
                 "http_status": record.get("http_status"),
                 "whois_hold": record.get("whois_hold"),
+                "screenshot_url": history.get("screenshot_url"),
             }
             risk_assessment = self.classifier.classify(domain, feature_data)
             self.phishing_results.append(risk_assessment)
+            risk_level_str = risk_assessment.get("risk_level", "BENIGN")
+            risk_score = risk_assessment.get("risk_score", 0)
         except Exception as e:
-            print(f"[!] Risk Skorlama Hatası ({domain}): {e}")
+            print(f"[!] Risk Skorlama Hatası ({domain}): {e}", flush=True)
 
+        print(f"  [✓] Tamamlandı: {domain} -> Karar: {record['decision']}, Risk: {risk_level_str} ({risk_score}/100)", flush=True)
         return record
 
     def run_pipeline(self, reset_db: bool = False):
@@ -222,25 +227,57 @@ class PhishingPipelineOrchestrator:
             print("[*] Veritabanı temizleniyor (--reset-db aktif)... Eski kayıtlar silindi.")
             self.repo.clear_all_scans()
 
-        self.load_initial_domains()
+        if not self.queue:
+            self.load_initial_domains()
+
+        if not self.queue:
+            print("[!] Tarama kuyruğunda domain bulunamadı.")
+            return
 
         start_time = time.time()
         print(f"\n[*] Pipeline Başlatıldı ({self.max_threads} eşzamanlı işçi ile)...")
 
         try:
+            from concurrent.futures import as_completed
+
             with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
-                while self.queue:
-                    batch = []
-                    while self.queue and len(batch) < self.max_threads:
-                        batch.append(self.queue.popleft())
+                futures_map = {}
 
-                    if batch:
-                        batch_results = list(executor.map(self.process_single_domain, batch))
-                        self.results.extend(batch_results)
+                # Başlangıçta thread kapasitesi kadar iş yükle
+                while self.queue and len(futures_map) < self.max_threads:
+                    d = self.queue.popleft()
+                    f = executor.submit(self.process_single_domain, d)
+                    futures_map[f] = d
 
-                        # Her 20 taranan domainde bir Excel raporunu otomatik kaydet
+                while futures_map:
+                    # Biten ilk görevi al
+                    done_futures = []
+                    for f in list(futures_map.keys()):
+                        if f.done():
+                            done_futures.append(f)
+
+                    if not done_futures:
+                        time.sleep(0.05)
+                        continue
+
+                    for f in done_futures:
+                        domain_name = futures_map.pop(f)
+                        try:
+                            res = f.result()
+                            if res:
+                                self.results.append(res)
+                        except Exception as e:
+                            print(f"[!] Hata ({domain_name}): {e}")
+
+                        # Her 20 sonuçta bir ara raporu Excel'e yaz
                         if len(self.results) % 20 == 0:
                             self.export_excel_report(self.output_excel_path, silent=True)
+
+                        # Kuyrukta yeni elemanlar varsa veya avcılıktan geldiyse yeni işçi başlat
+                        while self.queue and len(futures_map) < self.max_threads:
+                            next_d = self.queue.popleft()
+                            next_f = executor.submit(self.process_single_domain, next_d)
+                            futures_map[next_f] = next_d
 
         except KeyboardInterrupt:
             print("\n[!] Kullanıcı Tarafından İptal Edildi (Ctrl+C). Şu ana kadarki veriler Excel'e aktarılıyor...")
@@ -260,19 +297,24 @@ class PhishingPipelineOrchestrator:
             print("[!] Veritabanında sınıflandırılacak aktif domain kaydı bulunamadı.")
             return ""
 
-        print(f"[*] Veritabanındaki {len(db_records)} adet domain Phishing Risk Classifier motorundan geçiriliyor...")
+        print(f"[*] Veritabanındaki {len(db_records)} adet domain Phishing Risk Classifier motorundan geçiriliyor...", flush=True)
 
         self.results = db_records
         self.phishing_results = self.classifier.classify_batch(db_records)
 
         output_path = self.export_excel_report(self.output_excel_path)
-        print(f"[+] Re-classification tamamlandı! Toplam {len(self.phishing_results)} domain sınıflandırıldı.")
+        print(f"[+] Re-classification tamamlandı! Toplam {len(self.phishing_results)} domain sınıflandırıldı.", flush=True)
+        print(f"[+] Güncel Excel Raporu Kaydedildi: {output_path}", flush=True)
         return output_path
 
     def export_excel_report(self, output_path: str = None, silent: bool = False) -> str:
         """Sonuçları Excel raporuna aktarır."""
         exporter = ExcelExporter(self.results, phishing_results=self.phishing_results)
         return exporter.export(output_path, silent=silent)
+
+
+from domain_is_active.hunting.brand_hunter import URLScanBrandHunter
+from phishing_classifier.whitelist import WhitelistManager
 
 
 def main():
@@ -284,6 +326,17 @@ def main():
         type=str,
         default=None,
         help="Girdi dosyası yolu (.csv, .txt, .xlsx)"
+    )
+    parser.add_argument(
+        "-bh", "--brand-hunt",
+        action="store_true",
+        help="11 Hedef Kurum (A101, Togg, Garanti, Vakıfbank, İş Bankası, Borsa İst vb.) için URLScan marka avcılığı yapar."
+    )
+    parser.add_argument(
+        "--hours",
+        type=int,
+        default=48,
+        help="Marka avcılığında son kaç saatin URLScan verisinin çekileceği (Varsayılan: 48 saat)"
     )
     parser.add_argument(
         "-o", "--output",
@@ -313,24 +366,79 @@ def main():
         action="store_true",
         help="Ağ taraması yapmadan veritabanındaki mevcut domainleri Phishing Risk Classifier motorundan geçirir ve Excel raporu üretir."
     )
+    parser.add_argument(
+        "--add-whitelist",
+        type=str,
+        default=None,
+        help="Veritabanı Whitelist tablosuna yeni meşru bir domain ekler."
+    )
+    parser.add_argument(
+        "--list-whitelist",
+        action="store_true",
+        help="Veritabanındaki tüm Whitelist kayıtlarını listeler."
+    )
 
     args = parser.parse_args()
 
-    if not args.path and not getattr(args, "reclassify_db", False):
-        parser.error("Lütfen bir girdi dosyası (-p / --path) veya DB sınıflandırma parametresi (--reclassify-db) belirtin.")
+    # Whitelist Yönetim Komutları
+    if args.add_whitelist:
+        wm = WhitelistManager()
+        wm.add_domain(args.add_whitelist, source="CLI User Add")
+        print(f"[+] '{args.add_whitelist}' alanı veritabanı Whitelist tablosuna başarıyla eklendi.")
+        return
+
+    if args.list_whitelist:
+        wm = WhitelistManager()
+        wm.load_whitelist()
+        print(f"[*] Veritabanı Whitelist Tablosundaki Domainler ({len(wm._cached_whitelist)} adet):")
+        for d in sorted(wm._cached_whitelist):
+            print(f"  - {d}")
+        return
+
+    if not args.path and not args.brand_hunt and not args.reclassify_db:
+        parser.error("Lütfen bir girdi dosyası (-p / --path), Marka Avcılığı (-bh / --brand-hunt) veya DB sınıflandırma parametresi (--reclassify-db) belirtin.")
+
+    # Brand hunt modunda kullanıcı -c / --max-correlated belirtmediyse ilişkili avcılığı kapalı tut (0)
+    # Böylece kuyruk sonsuz büyümez ve URLScan API rate limit aşılmaz.
+    max_corr = args.max_correlated if "-c" in sys.argv or "--max-correlated" in sys.argv else (0 if args.brand_hunt else args.max_correlated)
 
     orchestrator = PhishingPipelineOrchestrator(
         input_path=args.path or "",
         max_threads=args.threads,
-        max_correlated_per_domain=args.max_correlated,
+        max_correlated_per_domain=max_corr,
         output_excel_path=args.output,
     )
 
     if args.reclassify_db:
         orchestrator.reclassify_db_domains()
+    elif args.brand_hunt:
+        if args.reset_db:
+            print("[*] Veritabanı temizleniyor (--reset-db aktif)... Eski kayıtlar silindi.")
+            orchestrator.repo.clear_all_scans()
+
+        brand_hunter = URLScanBrandHunter()
+        brand_results = brand_hunter.hunt_all(hours=args.hours)
+
+        # Tüm şüpheli domainleri kuyruğa ekle
+        total_queued = 0
+        for brand_name, domains in brand_results.items():
+            for d in domains:
+                clean_d = sanitize_domain(d)
+                if clean_d and clean_d not in orchestrator.visited_domains:
+                    orchestrator.visited_domains.add(clean_d)
+                    orchestrator.queue.append(clean_d)
+                    total_queued += 1
+
+        print(f"[*] Marka avcılığından {total_queued} adet şüpheli aday domain tarama kuyruğuna eklendi.")
+
+        if orchestrator.queue:
+            orchestrator.run_pipeline(reset_db=False)
+        else:
+            print("[!] URLScan üzerinde son saatlerde taranan yeni bir şüpheli domain bulunamadı.")
     else:
         orchestrator.run_pipeline(reset_db=args.reset_db)
 
 
 if __name__ == "__main__":
     main()
+
