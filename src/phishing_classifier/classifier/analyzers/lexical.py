@@ -248,9 +248,10 @@ class LexicalRiskAnalyzer(BaseAnalyzer):
                     matched_brand = True
                     break
 
-                # 1b. Birebir Marka İçerme (Kısa markalarda 'ing' gibi kelime içi -ing eki eşleşmelerini engelle)
+                # 1b. Birebir Marka İçerme (3 harfli kısa markalarda kelime içi -ing eki gibi yanlış eşleşmeleri engelle)
                 elif brand in cand and cand != brand:
-                    if len(brand) <= 3 and not (cand.startswith(brand) or cand.endswith(brand) or f"-{brand}-" in f"-{cand}-"):
+                    if len(brand) <= 3 and not (cand.startswith(brand + "-") or cand.endswith("-" + brand) or f"-{brand}-" in f"-{cand}-"):
+                        # 'voting', 'notebook' gibi kelimelerin içindeki 3 harfli kısa marka alt dizelerini atla!
                         continue
                     if len(brand) >= 3:
                         score += 25
