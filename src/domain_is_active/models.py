@@ -31,6 +31,9 @@ class ActiveDomainScan(Base):
     urlscan_time = Column(String(50), nullable=True)
     screenshot_url = Column(Text, nullable=True)
     correlated_domains = Column(Text, nullable=True)
+    page_title = Column(Text, nullable=True)
+    has_password_input = Column(String(10), nullable=True, default="Hayır")
+    has_login_form = Column(String(10), nullable=True, default="Hayır")
     scanned_at = Column(DateTime, default=now_utc, onupdate=now_utc)
 
 
