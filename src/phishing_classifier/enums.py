@@ -10,6 +10,8 @@ class RiskSignalCategory(BaseTextChoices):
     LEXICAL = "LEXICAL_TYPOSQUATTING"
     WHOIS = "WHOIS_SIGNAL"
     SSL_NETWORK = "SSL_NETWORK_SIGNAL"
+    VISUAL_CLONE = "VISUAL_CLONE_SIGNAL"
 
 
 __all__ = ["RiskLevel", "RiskSignalCategory"]
+

@@ -91,21 +91,3 @@ class WhitelistRepository(BaseRepository[WhitelistDomain]):
             domains = session.query(WhitelistDomain.domain).all()
             return {d[0].lower() for d in domains if d[0]}
 
-    def seed_default_whitelist(self, default_domains: List[str], source: str = "Tranco Top 10K Seed") -> int:
-        """
-        Veritabanı boşsa varsayılan meşru domain listesini toplu ekler (Seed).
-        """
-        if not default_domains:
-            return 0
-
-        with self.session_scope() as session:
-            existing_count = session.query(WhitelistDomain).count()
-            if existing_count > 0:
-                return existing_count
-
-            entries = [
-                WhitelistDomain(domain=d.strip().lower(), source=source)
-                for d in default_domains if d.strip()
-            ]
-            session.add_all(entries)
-            return len(entries)

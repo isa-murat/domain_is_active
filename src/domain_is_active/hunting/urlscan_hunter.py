@@ -66,7 +66,13 @@ class URLScanHunter:
                         }
             elif response.status_code == 429:
                 if not URLScanHunter._rate_limit_warned:
-                    print("\n[!] UYARI: URLScan.io API Rate Limit Aşıldı (HTTP 429)! Anonymous limitten dolayı arama durduruldu. Yüksek hacim için .env dosyasına URLSCAN_API_KEY ekleyin.")
+                    msg = "Günlük/Saatlik arama limiti aşıldı."
+                    try:
+                        err_json = response.json()
+                        msg = err_json.get("message", msg)
+                    except Exception:
+                        pass
+                    print(f"\n[!] UYARI: URLScan.io API Limit Aşıldı (HTTP 429)! Detay: {msg}")
                     URLScanHunter._rate_limit_warned = True
         except Exception:
             pass
@@ -91,7 +97,13 @@ class URLScanHunter:
                         domains.add(d.lower())
             elif response.status_code == 429:
                 if not URLScanHunter._rate_limit_warned:
-                    print("\n[!] UYARI: URLScan.io API Rate Limit Aşıldı (HTTP 429)! Anonymous limit saatlik 100 arama ile sınırlıdır. .env dosyasına URLSCAN_API_KEY ekleyin.")
+                    msg = "Günlük/Saatlik arama limiti aşıldı."
+                    try:
+                        err_json = response.json()
+                        msg = err_json.get("message", msg)
+                    except Exception:
+                        pass
+                    print(f"\n[!] UYARI: URLScan.io API Limit Aşıldı (HTTP 429)! Detay: {msg}")
                     URLScanHunter._rate_limit_warned = True
         except Exception:
             pass

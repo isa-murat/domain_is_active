@@ -30,7 +30,7 @@ class VisualCollector:
             image = Image.open(io.BytesIO(image_bytes)).convert("L")
             # 9x8 boyutuna indirgeyerek piksel farklarını hesaplıyoruz
             resized = image.resize((9, 8), Image.Resampling.LANCZOS)
-            pixels = list(resized.getdata())
+            pixels = list(resized.get_flattened_data()) if hasattr(resized, "get_flattened_data") else list(resized.getdata())
 
             difference = []
             for row in range(8):

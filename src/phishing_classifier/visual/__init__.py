@@ -1,4 +1,4 @@
-"""
-Phishing Visual Analysis Package (Aşama 3 - Gelecek Geliştirme).
-URLScan ekran görüntüleri ve pHash/dHash görsel klon tespiti bu modül altında geliştirilecektir.
-"""
+from phishing_classifier.visual.visual_analyzer import VisualRiskAnalyzer
+
+__all__ = ["VisualRiskAnalyzer"]
+

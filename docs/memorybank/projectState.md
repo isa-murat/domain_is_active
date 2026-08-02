@@ -3,9 +3,9 @@
 ## 📌 Genel Özet
 `domain_is_active` projesi, phishing/şüpheli alan adlarının canlılık durumlarını (DNS, WHOIS, SSL, HTTP) analiz eden ve URLScan.io üzerinden Multi-Vector (Favicon, SSL SPKI, IP, DOM Hash) tehdit avcılığı yapan modüler bir Python aracıdır.
 
-- **Mevcut Sürüm:** v0.2.0 (Phishing Risk Classifier Geliştirme Aşamasında)
-- **Aktif Branch:** `feat/phishing-risk-classifier`
-- **CLI Kısayolu:** `dia -p <girdi> -o <cikti> [--reset-db]`
+- **Mevcut Sürüm:** v0.3.0 (Marka Bazlı URLScan Avcılığı & Görsel Klon Tespiti Tamamlandı)
+- **Aktif Branch:** `feat/urlscan-brand-hunter-and-visual-phash`
+- **CLI Kısayolu:** `dia -bh [--hours 48] [-o <cikti>]` / `dia --add-whitelist <domain>`
 
 ---
 
@@ -34,9 +34,13 @@
 
 ### 5. Tehdit Avcılığı Engine (`domain_is_active/hunting/`)
 - `urlscan_hunter.py`: Favicon + SPKI + IP + DOM Hash vektörlerini birleştiren Multi-Vector URLScan Hunter.
+- `brand_hunter.py`: 11 Hedef Kurum (A101, Togg, Garanti, Vakıfbank, İş Bankası, Borsa İstanbul, Takasbank, Otokoç, Azercell, BIDV, The Body Shop) için otomatik URLScan zaman filtreli marka avcısı (`URLScanBrandHunter`).
 - `similarity.py`: Levenshtein string benzerlik algoritması.
 
-### 6. Karar Facade & Raporlayıcı (`domain_is_active/checker/` & `exporters/`)
+### 6. Görsel Klon Tespiti (`phishing_classifier/visual/`)
+- `visual_analyzer.py`: `assets/reference_screenshots/` klasöründeki resmi kurum ekran görüntüleri ile aday siteleri dHash Hamming mesafesi ile karşılaştıran `VisualRiskAnalyzer` (%85+ benzerlikte sahte klon uyarısı).
+
+### 7. Karar Facade & Raporlayıcı (`domain_is_active/checker/` & `exporters/`)
 - `domain_checker.py`: Toplayıcıları sırayla çalıştırıp `ScanDecision` üreten Facade sınıfı.
 - `excel.py`: openpyxl biçimlendirmeli tıklanabilir Excel rapor üretici.
 
@@ -45,7 +49,8 @@
 ## 🔄 Aktif Geliştirme Durumu
 - **Tamamlanan Aşamalar:** 
   - **Aşama 1:** Shared Core DB (`src/core/db/`), Alembic Migrasyonları ve `ActiveDomainRepository` tamamlandı.
-  - **Aşama 2:** Phishing Risk Sınıflandırma Motoru (`feat/phishing-risk-classifier`) tamamlandı. `src/phishing_classifier/` paketi (0-100 Ağırlıklı Risk Puanlama, Whitelist DB Tablosu & Set önbellekleme, HTML/Lexical/WHOIS/SSL analizörleri, Alembic migrasyonu ve çok sayfalı Excel rapor entegrasyonu) başarıyla geliştirildi ve tüm testlerden geçti.
-- **Sıradaki Aşama:** Aşama 3 - Görsel pHash Klon Tespiti (`feat/visual-phash-analyzer`).
+  - **Aşama 2:** Phishing Risk Sınıflandırma Motoru (`feat/phishing-risk-classifier`) tamamlandı. `src/phishing_classifier/` paketi (0-100 Ağırlıklı Risk Puanlama, Whitelist DB Tablosu & Set önbellekleme, HTML/Lexical/WHOIS/SSL analizörleri, Alembic migrasyonu ve çok sayfalı Excel rapor entegrasyonu) başarıyla geliştirildi.
+  - **Aşama 3:** 11 Kurum İçin URLScan Marka Avcılığı (`URLScanBrandHunter`), Veritabanı Tabanlı Whitelist Seeding & Yönetimi ve Görsel pHash Klon Tespiti (`VisualRiskAnalyzer`) geliştirildi ve tüm unit testlerden geçti.
+
 
 
