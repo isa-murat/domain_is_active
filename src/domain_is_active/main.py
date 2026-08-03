@@ -237,7 +237,7 @@ class PhishingPipelineOrchestrator:
         except Exception as e:
             print(f"[!] Risk Skorlama Hatası ({domain}): {e}", flush=True)
 
-        print(f"  [✓] Tamamlandı: {domain} -> Karar: {record['decision']}, Risk: {risk_level_str} ({risk_score}/100)", flush=True)
+        print(f"  [+] Tamamlandı: {domain} -> Karar: {record['decision']}, Risk: {risk_level_str} ({risk_score}/100)", flush=True)
         return record
 
     def run_pipeline(self, reset_db: bool = False):
