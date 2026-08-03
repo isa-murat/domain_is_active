@@ -41,6 +41,9 @@ from phishing_classifier.classifier.engine import PhishingRiskClassifier
 from phishing_classifier.repository import PhishingRiskRepository
 
 
+from domain_is_active.exporters import ExcelExporter, CSVExporter
+
+
 class PhishingPipelineOrchestrator:
     """
     Tüm domain aktiflik tarama, tehdit avcılığı ve Phishing Risk Skorlama pipeline'ını yöneten orkestratör sınıf.
@@ -64,6 +67,7 @@ class PhishingPipelineOrchestrator:
 
         self.queue = deque()
         self.visited_domains = set()
+        self.domain_company_map: Dict[str, str] = {}
         self.results: List[Dict[str, Any]] = []
         self.phishing_results: List[Dict[str, Any]] = []
         self.hunter = URLScanHunter()
@@ -74,13 +78,27 @@ class PhishingPipelineOrchestrator:
     def _extract_domains_from_dataframe(self, df: pd.DataFrame) -> List[Any]:
         """Dataframe içerisinden muhtemel domain sütununu bulup verileri döndürür."""
         target_col = None
+        company_col = None
+
         for col in df.columns:
-            if any(keyword in str(col).lower() for keyword in ["domain", "url", "site", "host"]):
+            col_str = str(col).lower()
+            if any(keyword in col_str for keyword in ["domain", "url", "site", "host"]):
                 target_col = col
-                break
+            if any(keyword in col_str for keyword in ["şirket", "sirket", "company", "org", "kurum"]):
+                company_col = col
+
         if target_col is None and not df.empty:
             target_col = df.columns[0]
-        return df[target_col].dropna().tolist() if target_col is not None else []
+
+        if target_col is not None:
+            if company_col is not None:
+                for _, row in df.iterrows():
+                    d = sanitize_domain(str(row[target_col]))
+                    c = str(row[company_col]).strip()
+                    if d and c and c.lower() != "nan":
+                        self.domain_company_map[d] = c
+            return df[target_col].dropna().tolist()
+        return []
 
     def load_initial_domains(self):
         """Girdi dosyasından (.csv, .tsv, .xlsx, .txt) domainleri okur ve kuyruğa ekler."""
@@ -284,7 +302,7 @@ class PhishingPipelineOrchestrator:
         finally:
             elapsed = time.time() - start_time
             print(f"\n[+] Pipeline Tamamlandı / Durduruldu! Toplam {len(self.results)} domain {elapsed:.2f} saniyede analiz edildi.")
-            self.export_excel_report(self.output_excel_path)
+            self.export_all_reports(self.output_excel_path)
 
     def reclassify_db_domains(self) -> str:
         """
@@ -302,15 +320,34 @@ class PhishingPipelineOrchestrator:
         self.results = db_records
         self.phishing_results = self.classifier.classify_batch(db_records)
 
-        output_path = self.export_excel_report(self.output_excel_path)
+        output_path = self.export_all_reports(self.output_excel_path)
         print(f"[+] Re-classification tamamlandı! Toplam {len(self.phishing_results)} domain sınıflandırıldı.", flush=True)
-        print(f"[+] Güncel Excel Raporu Kaydedildi: {output_path}", flush=True)
         return output_path
 
     def export_excel_report(self, output_path: str = None, silent: bool = False) -> str:
         """Sonuçları Excel raporuna aktarır."""
         exporter = ExcelExporter(self.results, phishing_results=self.phishing_results)
         return exporter.export(output_path, silent=silent)
+
+    def export_csv_report(self, output_path: str = None, silent: bool = False) -> str:
+        """Sonuçları Batuhan Aydos özel 6 sütunlu CSV raporuna aktarır."""
+        if not output_path:
+            output_path = self.output_excel_path.replace(".xlsx", ".csv")
+        elif not output_path.lower().endswith(".csv"):
+            output_path = os.path.splitext(output_path)[0] + ".csv"
+
+        exporter = CSVExporter(
+            self.results,
+            phishing_results=self.phishing_results,
+            domain_company_map=self.domain_company_map,
+        )
+        return exporter.export(output_path, silent=silent)
+
+    def export_all_reports(self, output_path: str = None, silent: bool = False) -> str:
+        """Hem Excel hem de 6 sütunlu CSV raporlarını üretir."""
+        excel_path = self.export_excel_report(output_path, silent=silent)
+        csv_path = self.export_csv_report(output_path, silent=silent)
+        return excel_path
 
 
 from domain_is_active.hunting.brand_hunter import URLScanBrandHunter
@@ -325,7 +362,7 @@ def main():
         "-p", "--path",
         type=str,
         default=None,
-        help="Girdi dosyası yolu (.csv, .txt, .xlsx)"
+        help="Girdi dosyası yolu (.csv, .tsv, .xlsx, .txt)"
     )
     parser.add_argument(
         "-bh", "--brand-hunt",
@@ -342,7 +379,7 @@ def main():
         "-o", "--output",
         type=str,
         default=None,
-        help="Rapor Excel çıktısının kaydedileceği yol (Varsayılan: reports/phishing_analysis_report_<timestamp>.xlsx)"
+        help="Rapor çıktısının kaydedileceği yol (Varsayılan: reports/phishing_analysis_report_<timestamp>.xlsx)"
     )
     parser.add_argument(
         "-c", "--max-correlated",
@@ -364,7 +401,7 @@ def main():
     parser.add_argument(
         "--reclassify-db",
         action="store_true",
-        help="Ağ taraması yapmadan veritabanındaki mevcut domainleri Phishing Risk Classifier motorundan geçirir ve Excel raporu üretir."
+        help="Ağ taraması yapmadan veritabanındaki mevcut domainleri Phishing Risk Classifier motorundan geçirir ve Excel/CSV raporu üretir."
     )
     parser.add_argument(
         "--add-whitelist",
@@ -399,7 +436,6 @@ def main():
         parser.error("Lütfen bir girdi dosyası (-p / --path), Marka Avcılığı (-bh / --brand-hunt) veya DB sınıflandırma parametresi (--reclassify-db) belirtin.")
 
     # Brand hunt modunda kullanıcı -c / --max-correlated belirtmediyse ilişkili avcılığı kapalı tut (0)
-    # Böylece kuyruk sonsuz büyümez ve URLScan API rate limit aşılmaz.
     max_corr = args.max_correlated if "-c" in sys.argv or "--max-correlated" in sys.argv else (0 if args.brand_hunt else args.max_correlated)
 
     orchestrator = PhishingPipelineOrchestrator(
@@ -419,15 +455,17 @@ def main():
         brand_hunter = URLScanBrandHunter()
         brand_results = brand_hunter.hunt_all(hours=args.hours)
 
-        # Tüm şüpheli domainleri kuyruğa ekle
+        # Tüm şüpheli domainleri kuyruğa ekle ve marka eşleştirmesini sakla
         total_queued = 0
         for brand_name, domains in brand_results.items():
             for d in domains:
                 clean_d = sanitize_domain(d)
-                if clean_d and clean_d not in orchestrator.visited_domains:
-                    orchestrator.visited_domains.add(clean_d)
-                    orchestrator.queue.append(clean_d)
-                    total_queued += 1
+                if clean_d:
+                    orchestrator.domain_company_map[clean_d] = brand_name
+                    if clean_d not in orchestrator.visited_domains:
+                        orchestrator.visited_domains.add(clean_d)
+                        orchestrator.queue.append(clean_d)
+                        total_queued += 1
 
         print(f"[*] Marka avcılığından {total_queued} adet şüpheli aday domain tarama kuyruğuna eklendi.")
 

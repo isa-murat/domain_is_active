@@ -3,9 +3,9 @@
 ## 📌 Genel Özet
 `domain_is_active` projesi, phishing/şüpheli alan adlarının canlılık durumlarını (DNS, WHOIS, SSL, HTTP) analiz eden ve URLScan.io üzerinden Multi-Vector (Favicon, SSL SPKI, IP, DOM Hash) tehdit avcılığı yapan modüler bir Python aracıdır.
 
-- **Mevcut Sürüm:** v0.3.0 (Marka Bazlı URLScan Avcılığı & Görsel Klon Tespiti Tamamlandı)
-- **Aktif Branch:** `feat/urlscan-brand-hunter-and-visual-phash`
-- **CLI Kısayolu:** `dia -bh [--hours 48] [-o <cikti>]` / `dia --add-whitelist <domain>`
+- **Mevcut Sürüm:** v0.4.0 (Batuhan Aydos Özel 6 Sütunlu CSV Exporter Tamamlandı)
+- **Aktif Branch:** `feat/custom-csv-exporter`
+- **CLI Kısayolu:** `dia -bh [--hours 24] [--reset-db]` / `dia -p <girdi>`
 
 ---
 
@@ -40,9 +40,10 @@
 ### 6. Görsel Klon Tespiti (`phishing_classifier/visual/`)
 - `visual_analyzer.py`: `assets/reference_screenshots/` klasöründeki resmi kurum ekran görüntüleri ile aday siteleri dHash Hamming mesafesi ile karşılaştıran `VisualRiskAnalyzer` (%85+ benzerlikte sahte klon uyarısı).
 
-### 7. Karar Facade & Raporlayıcı (`domain_is_active/checker/` & `exporters/`)
+### 7. Karar Facade & Raporlayıcılar (`domain_is_active/checker/` & `exporters/`)
 - `domain_checker.py`: Toplayıcıları sırayla çalıştırıp `ScanDecision` üreten Facade sınıfı.
 - `excel.py`: openpyxl biçimlendirmeli tıklanabilir Excel rapor üretici.
+- `csv_exporter.py`: Batuhan Aydos özel formatına uygun 6 sütunlu (`Şirket`, `Domain`, `Durum`, `Sunucu IP`, `Son görülme`, `Kötü niyetli işaret`) `utf-8-sig` CSV rapor üretici (`CSVExporter`).
 
 ---
 
@@ -50,7 +51,8 @@
 - **Tamamlanan Aşamalar:** 
   - **Aşama 1:** Shared Core DB (`src/core/db/`), Alembic Migrasyonları ve `ActiveDomainRepository` tamamlandı.
   - **Aşama 2:** Phishing Risk Sınıflandırma Motoru (`feat/phishing-risk-classifier`) tamamlandı. `src/phishing_classifier/` paketi (0-100 Ağırlıklı Risk Puanlama, Whitelist DB Tablosu & Set önbellekleme, HTML/Lexical/WHOIS/SSL analizörleri, Alembic migrasyonu ve çok sayfalı Excel rapor entegrasyonu) başarıyla geliştirildi.
-  - **Aşama 3:** 11 Kurum İçin URLScan Marka Avcılığı (`URLScanBrandHunter`), Veritabanı Tabanlı Whitelist Seeding & Yönetimi ve Görsel pHash Klon Tespiti (`VisualRiskAnalyzer`) geliştirildi ve tüm unit testlerden geçti.
+  - **Aşama 3:** 11 Kurum İçin URLScan Marka Avcılığı (`URLScanBrandHunter`), Veritabanı Tabanlı Whitelist Seeding & Yönetimi ve Görsel pHash Klon Tespiti (`VisualRiskAnalyzer`) geliştirildi.
+  - **Aşama 4:** Batuhan Aydos Özel 6 Sütunlu `utf-8-sig` CSV Exporter (`CSVExporter`) ve `--export-csv` entegrasyonu geliştirildi ve tüm birim testlerden geçti.
 
 
 
