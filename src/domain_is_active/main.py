@@ -204,6 +204,7 @@ class PhishingPipelineOrchestrator:
             "page_title": local_res.get("page_title") or "-",
             "has_password_input": "Evet" if local_res.get("has_password_input") else "Hayır",
             "has_login_form": "Evet" if local_res.get("has_login_form") else "Hayır",
+            "company": self.domain_company_map.get(domain, ""),
         }
 
         # Veritabanına kaydet
@@ -330,7 +331,7 @@ class PhishingPipelineOrchestrator:
         return exporter.export(output_path, silent=silent)
 
     def export_csv_report(self, output_path: str = None, silent: bool = False) -> str:
-        """Sonuçları Batuhan Aydos özel 6 sütunlu CSV raporuna aktarır."""
+        """Sonuçları özel 6 sütunlu CSV raporuna aktarır."""
         if not output_path:
             output_path = self.output_excel_path.replace(".xlsx", ".csv")
         elif not output_path.lower().endswith(".csv"):

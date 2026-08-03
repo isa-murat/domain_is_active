@@ -17,7 +17,7 @@ class BrandTarget:
     search_query: str
 
 
-# Batuhan Aydos tarafından talep edilen 11 Hedef Kurum
+# Marka avcılığı kapsamındaki 11 Hedef Kurum
 TARGET_INSTITUTIONS: List[BrandTarget] = [
     BrandTarget(
         name="A101",

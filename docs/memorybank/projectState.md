@@ -3,7 +3,7 @@
 ## 📌 Genel Özet
 `domain_is_active` projesi, phishing/şüpheli alan adlarının canlılık durumlarını (DNS, WHOIS, SSL, HTTP) analiz eden ve URLScan.io üzerinden Multi-Vector (Favicon, SSL SPKI, IP, DOM Hash) tehdit avcılığı yapan modüler bir Python aracıdır.
 
-- **Mevcut Sürüm:** v0.4.0 (Batuhan Aydos Özel 6 Sütunlu CSV Exporter Tamamlandı)
+- **Mevcut Sürüm:** v0.4.0 (Özel 6 Sütunlu CSV Exporter Tamamlandı)
 - **Aktif Branch:** `feat/custom-csv-exporter`
 - **CLI Kısayolu:** `dia -bh [--hours 24] [--reset-db]` / `dia -p <girdi>`
 
@@ -43,7 +43,7 @@
 ### 7. Karar Facade & Raporlayıcılar (`domain_is_active/checker/` & `exporters/`)
 - `domain_checker.py`: Toplayıcıları sırayla çalıştırıp `ScanDecision` üreten Facade sınıfı.
 - `excel.py`: openpyxl biçimlendirmeli tıklanabilir Excel rapor üretici.
-- `csv_exporter.py`: Batuhan Aydos özel formatına uygun 6 sütunlu (`Şirket`, `Domain`, `Durum`, `Sunucu IP`, `Son görülme`, `Kötü niyetli işaret`) `utf-8-sig` CSV rapor üretici (`CSVExporter`).
+- `csv_exporter.py`: Özel formatına uygun 6 sütunlu (`Şirket`, `Domain`, `Durum`, `Sunucu IP`, `Son görülme`, `Kötü niyetli işaret`) `utf-8-sig` CSV rapor üretici (`CSVExporter`).
 
 ---
 
@@ -52,7 +52,7 @@
   - **Aşama 1:** Shared Core DB (`src/core/db/`), Alembic Migrasyonları ve `ActiveDomainRepository` tamamlandı.
   - **Aşama 2:** Phishing Risk Sınıflandırma Motoru (`feat/phishing-risk-classifier`) tamamlandı. `src/phishing_classifier/` paketi (0-100 Ağırlıklı Risk Puanlama, Whitelist DB Tablosu & Set önbellekleme, HTML/Lexical/WHOIS/SSL analizörleri, Alembic migrasyonu ve çok sayfalı Excel rapor entegrasyonu) başarıyla geliştirildi.
   - **Aşama 3:** 11 Kurum İçin URLScan Marka Avcılığı (`URLScanBrandHunter`), Veritabanı Tabanlı Whitelist Seeding & Yönetimi ve Görsel pHash Klon Tespiti (`VisualRiskAnalyzer`) geliştirildi.
-  - **Aşama 4:** Batuhan Aydos Özel 6 Sütunlu `utf-8-sig` CSV Exporter (`CSVExporter`) ve `--export-csv` entegrasyonu geliştirildi ve tüm birim testlerden geçti.
+  - **Aşama 4:** Özel 6 Sütunlu `utf-8-sig` CSV Exporter (`CSVExporter`) ve `--export-csv` entegrasyonu geliştirildi ve tüm birim testlerden geçti.
 
 
 

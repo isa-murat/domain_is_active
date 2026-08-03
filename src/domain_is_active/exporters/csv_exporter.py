@@ -10,7 +10,6 @@ from domain_is_active.hunting.brand_hunter import TARGET_INSTITUTIONS
 
 class CSVExporter:
     """
-    Batuhan Aydos özel formatına uygun 6 sütunlu CSV rapor üreticisi:
     Sütunlar: ["Şirket", "Domain", "Durum", "Sunucu IP", "Son görülme", "Kötü niyetli işaret"]
     """
 
@@ -81,9 +80,6 @@ class CSVExporter:
         return "Hayır"
 
     def export(self, output_path: str = None, silent: bool = False) -> str:
-        """
-        Batuhan Aydos özel CSV formatındaki raporu üretir ve `utf-8-sig` (UTF-8 BOM) ile kaydeder.
-        """
         if not output_path:
             timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = os.path.join("reports", f"phishing_analysis_report_{timestamp_str}.csv")

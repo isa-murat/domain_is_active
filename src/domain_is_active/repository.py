@@ -68,6 +68,8 @@ class ActiveDomainRepository(BaseRepository[ActiveDomainScan]):
                 existing.page_title = str(record.get("page_title", "-"))
                 existing.has_password_input = str(record.get("has_password_input", "Hayır"))
                 existing.has_login_form = str(record.get("has_login_form", "Hayır"))
+                if record.get("company"):
+                    existing.company = str(record["company"])
                 existing.scanned_at = now
             else:
                 # Yeni Kayıt (INSERT)
@@ -93,6 +95,7 @@ class ActiveDomainRepository(BaseRepository[ActiveDomainScan]):
                     page_title=str(record.get("page_title", "-")),
                     has_password_input=str(record.get("has_password_input", "Hayır")),
                     has_login_form=str(record.get("has_login_form", "Hayır")),
+                    company=str(record.get("company", "")) if record.get("company") else None,
                     scanned_at=now,
                 )
                 session.add(scan_entry)
@@ -122,9 +125,10 @@ class ActiveDomainRepository(BaseRepository[ActiveDomainScan]):
                     "urlscan_time": r.urlscan_time,
                     "screenshot_url": r.screenshot_url,
                     "correlated_domains": r.correlated_domains,
-                    "page_title": r.page_title or "-",
-                    "has_password_input": True if r.has_password_input in ["Evet", "True", "true"] else False,
-                    "has_login_form": True if r.has_login_form in ["Evet", "True", "true"] else False,
+                    "page_title": r.page_title,
+                    "has_password_input": r.has_password_input,
+                    "has_login_form": r.has_login_form,
+                    "company": r.company,
                 })
             return results
 
