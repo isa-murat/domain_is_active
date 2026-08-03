@@ -34,6 +34,7 @@ class ActiveDomainScan(Base):
     page_title = Column(Text, nullable=True)
     has_password_input = Column(String(10), nullable=True, default="Hayır")
     has_login_form = Column(String(10), nullable=True, default="Hayır")
+    company = Column(String(100), nullable=True, index=True)
     scanned_at = Column(DateTime, default=now_utc, onupdate=now_utc)
 
 

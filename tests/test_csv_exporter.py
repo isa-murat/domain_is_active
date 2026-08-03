@@ -53,7 +53,7 @@ def test_csv_exporter_columns_and_formatting(tmp_path):
 
     df = pd.read_csv(exported_path, encoding="utf-8-sig")
 
-    # Check 6 columns match Batuhan Aydos exact spec
+    # Check 6 columns match exact spec
     expected_cols = ["Şirket", "Domain", "Durum", "Sunucu IP", "Son görülme", "Kötü niyetli işaret"]
     assert list(df.columns) == expected_cols
 
